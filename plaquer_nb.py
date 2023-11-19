@@ -38,12 +38,6 @@ def get_available_gpus():
     local_device_protos = device_lib.list_local_devices()
     return [x.name for x in local_device_protos if x.device_type == 'GPU']
     
-available_gpus = get_available_gpus()
-if len(available_gpus) > 0:
-  DEVICE = 0
-else:
-  DEVICE = "cpu"
-
 # ==============================================================================
 #                             UTILITY FUNCTIONS
 # ==============================================================================
@@ -323,8 +317,6 @@ def scan_inputs(input_path):
       input_data_fnames.append(entry.path)
   return input_data_fnames
   
-input_data_fnames = scan_inputs(INPUT_DATA_PATH)
-
 # ==============================================================================
 #                                 PATCHING
 # ==============================================================================
@@ -583,8 +575,6 @@ def patching(input_data_fnames, img_size=IMG_SIZE, resize=RESIZE, rescale=RESCAL
       idx+=1
   return pd.DataFrame.from_dict(fname_dict)
 
-fname_dict = patching(input_data_fnames, resize=RESIZE, rescale=RESCALE, ubyte=UBYTE)
-
 # ==============================================================================
 #                                 PREDICTION
 # ==============================================================================
@@ -617,13 +607,11 @@ def predict_patches(mdl):
       fname = os.path.join(PREDICTIONS_PATH_LOCAL[mdl],
                            os.path.basename(r.path).replace(".png", ".txt"))
       df.to_csv(fname, sep=" ", header=False, index=False)
-      
-for mdl in MODELS:
-  predict_patches(mdl)
-      
+            
 # ==============================================================================
 #                                 STITCHING
 # ==============================================================================
+
 def extract_sample_fname(fname, sep="_"):
   elements = fname.split(sep)
   n_elements = len(elements)
@@ -974,15 +962,7 @@ def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
                                                ioa,
                                                weights,
                                                classes_model) for img in imgs_list}
-  return ensemble_preds_dict
-  
-ensemble_preds_dict = get_ensemble_preds_per_img(IOU_NMS,
-                                                 IOU_WBF,
-                                                 SKIP_BOX_THRESHOLD,
-                                                 IOA,
-                                                 weights,
-                                                 classes_model)
-                                                 
+  return ensemble_preds_dict                                              
 
 # ==============================================================================
 #                                 COUNTING
@@ -1011,10 +991,7 @@ def calculate_df_counts_ensemble(ensemble_preds_dict):
     df_count_preds.loc[img] = count_preds.T.loc["count"]
 
   return df_count_preds.astype(int)
-  
-total_count = calculate_df_counts_ensemble(ensemble_preds_dict)
-
-  
+    
 # ==============================================================================
 #                                 EXPORT
 # ==============================================================================
@@ -1278,23 +1255,86 @@ def export_low_conf_preds(input_data_fnames,
                                        dpi=dpi,
                                        save_fig=save_fig,
                                        close_fig=close_fig)
+
+def export(fname_dict,
+           total_count,
+           input_data_fnames,
+           ensemble_preds_dict,
+           weights=None,
+           classes_model=None,
+           figsize=FIGSIZE,
+           dpi=DPI,
+           save_fig=SAVE_PRED_FIGS,
+           close_fig=CLOSE_FIG):
+               
+    export_fname_dictionary(fname_dict)
+    export_counting_result(total_count)
+    export_prediction_plots(input_data_fnames,
+                            fname_dict,
+                            ensemble_preds_dict,
+                            weights,
+                            classes_model,
+                            close_fig)
+    export_low_conf_preds(input_data_fnames,
+                          fname_dict,
+                          ensemble_preds_dict,
+                          classes_plot="all",
+                          figsize=figsize,
+                          dpi=dpi,
+                          save_fig=save_fig,
+                          close_fig=close_fig)
                                        
-export_fname_dictionary(fname_dict)
+# ==============================================================================
+#                                 RUN SCRIPT
+# ==============================================================================
 
-export_counting_result(total_count)
+print("[START]")
 
-export_prediction_plots(input_data_fnames,
-                        fname_dict,
-                        ensemble_preds_dict,
-                        weights,
-                        classes_model,
-                        CLOSE_FIG)
+# 1. HANDLING GPU
+print("\n1/7 HANDLING GPU ...")
+available_gpus = get_available_gpus()
+if len(available_gpus) > 0:
+  DEVICE = 0
+else:
+  DEVICE = "cpu"
 
-export_low_conf_preds(input_data_fnames,
-                      fname_dict,
-                      ensemble_preds_dict,
-                      classes_plot="all",
-                      figsize=FIGSIZE,
-                      dpi=DPI,
-                      save_fig=SAVE_PRED_FIGS,
-                      close_fig=CLOSE_FIG)
+# 2. LOADING DATA
+print("\n2/7 LOADING DATA ...")
+input_data_fnames = scan_inputs(INPUT_DATA_PATH)
+
+# 3. PATCHING
+print("\n3/7 PATCHING ...")
+fname_dict = patching(input_data_fnames, resize=RESIZE, rescale=RESCALE, ubyte=UBYTE)
+
+# 4. PREDICTING
+print("\n4/7 PREDICTING ...")
+for mdl in MODELS:
+  predict_patches(mdl)
+  
+# 5. STITCHING
+print("\n5/7 STITCHING ...")
+ensemble_preds_dict = get_ensemble_preds_per_img(IOU_NMS,
+                                                 IOU_WBF,
+                                                 SKIP_BOX_THRESHOLD,
+                                                 IOA,
+                                                 weights,
+                                                 classes_model)
+												 
+# 6. COUNTING
+print("\n6/7 COUNTING ...")
+total_count = calculate_df_counts_ensemble(ensemble_preds_dict)
+
+# 7. EXPORTING
+print("\n7/7 EXPORTING ...")
+export(fname_dict,
+       total_count,
+       input_data_fnames,
+       ensemble_preds_dict,
+       weights,
+       classes_model,
+       figsize=FIGSIZE,
+       dpi=DPI,
+       save_fig=SAVE_PRED_FIGS,
+       close_fig=CLOSE_FIG)
+
+print("\n[END]")
