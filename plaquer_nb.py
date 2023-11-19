@@ -26,7 +26,7 @@ import torchvision
 from ensemble_boxes import weighted_boxes_fusion
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
