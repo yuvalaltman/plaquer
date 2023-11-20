@@ -36,9 +36,9 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 parser = ArgumentParser(description="Counting plaques from ND2 files of fluorescent microscopy images",
 			formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument("-d", "--data", help="Path of the folder containing ND2 images to count")
 parser.add_argument("-t", "--TTA", default=1.0, type=float, help="Amount of Test Time Augmentations (0-1)")
-parser.add_argument("-l", "--low-conf", action="store_true", help="Exporting plots of low confidence detections")
+parser.add_argument("-l", "--low-conf", action="store_false", help="Exporting plots of low confidence detections")
+parser.add_argument("data", help="Path of the folder containing ND2 images to count")
 args = vars(parser.parse_args())
 
 # ==============================================================================
