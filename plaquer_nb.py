@@ -9,7 +9,6 @@ import re
 import zipfile
 import shutil
 import locale
-from google.colab import files
 from natsort import natsorted
 import warnings
 import nd2
@@ -27,8 +26,20 @@ from ensemble_boxes import weighted_boxes_fusion
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+
+# ==============================================================================
+#                            PARSING INPUT ARGUMENTS
+# ==============================================================================
+
+parser = ArgumentParser(description="Counting plaques from ND2 files of fluorescent microscopy images",
+			formatter_class=ArgumentDefaultsHelpFormatter)
+parser.add_argument("-d", "--data", help="Path of the folder containing ND2 images to count")
+parser.add_argument("-t", "--TTA", default=1.0, type=float, help="Amount of Test Time Augmentations (0-1)")
+parser.add_argument("-l", "--low-conf", action="store_true", help="Exporting plots of low confidence detections")
+args = vars(parser.parse_args())
 
 # ==============================================================================
 #                                 GPU HANDLING
@@ -248,7 +259,8 @@ PREPROCESS_SUB_IMG = False if (RESCALE and UBYTE) else True
 WEIGHTED_IMG = {"synth_12i": False, "synth_13a": True}
 
 augs = ["hflip", "vflip", "rot90", "gamma"]
-TTA = 1.0 # test time augmentations, float in [0-1], for the probability of performing augmentations
+# TTA = 1.0 # test time augmentations, float in [0-1], for the probability of performing augmentations
+TTA = args["TTA"] # test time augmentations, float in [0-1], for the probability of performing augmentations
 
 MIN_AREA_REMOVE = 24**2 # predicted objects with an area smaller than this will be removed (given in pixels²)
 MIN_SIDE_REMOVE = 24 # predicted objects with a side shorter than this will be removed (given in pixels) -> NOTE: this is smaller than MIN_SIDE in the patching, i.e., dataset creation
@@ -274,6 +286,7 @@ CLOSE_FIG = True
 
 LOW_CONF_THRESHOLD = 0.1
 LOW_CONF_PERCENTILE = 0.05
+EXPORT_LOW_CONF = args["low_conf"]
 
 COUNTING_FNAME = "Counting Result.xlsx"
 FILENAMES_DICT_FNAME = "IMGXX to Filename.xlsx"
@@ -308,7 +321,8 @@ tf.random.set_seed(SEED)
 #                                 LOADING DATA
 # ==============================================================================
 
-INPUT_DATA_PATH = r"/content/drive/MyDrive/Kobiler Lab/Inference/"
+# INPUT_DATA_PATH = r"/content/drive/MyDrive/Kobiler Lab/Inference/"
+INPUT_DATA_PATH = args["data"]
 
 def scan_inputs(input_path):
   input_data_fnames = []
@@ -1202,7 +1216,7 @@ def plot_low_conf_preds_in_large_img(large_img_fname,
                                      dpi=DPI,
                                      save_fig=SAVE_PRED_FIGS,
                                      close_fig=CLOSE_FIG):
-
+					     
   figname_load = os.path.join(DATA_PATH_SAVE, add_ext(large_img_fname))
   figname_save = os.path.join(INPUT_DATA_PATH, add_ext(large_img_fname + " low confidence predictions"))
 
@@ -1262,28 +1276,30 @@ def export(fname_dict,
            ensemble_preds_dict,
            weights=None,
            classes_model=None,
+	   export_low_conf=EXPORT_LOW_CONF,
            figsize=FIGSIZE,
            dpi=DPI,
            save_fig=SAVE_PRED_FIGS,
            close_fig=CLOSE_FIG):
-               
-    export_fname_dictionary(fname_dict)
-    export_counting_result(total_count)
-    export_prediction_plots(input_data_fnames,
-                            fname_dict,
-                            ensemble_preds_dict,
-                            weights,
-                            classes_model,
-                            close_fig)
-    export_low_conf_preds(input_data_fnames,
-                          fname_dict,
-                          ensemble_preds_dict,
-                          classes_plot="all",
-                          figsize=figsize,
-                          dpi=dpi,
-                          save_fig=save_fig,
-                          close_fig=close_fig)
-                                       
+		   
+   export_fname_dictionary(fname_dict)
+   export_counting_result(total_count)
+   export_prediction_plots(input_data_fnames,
+			   fname_dict,
+			   ensemble_preds_dict,
+			   weights,
+			   classes_model,
+			   close_fig)
+   if export_low_conf:
+	   export_low_conf_preds(input_data_fnames,
+				 fname_dict,
+				 ensemble_preds_dict,
+				 classes_plot="all",
+				 figsize=figsize,
+				 dpi=dpi,
+				 save_fig=save_fig,
+				 close_fig=close_fig)
+	                                       
 # ==============================================================================
 #                                 RUN SCRIPT
 # ==============================================================================
@@ -1332,6 +1348,7 @@ export(fname_dict,
        ensemble_preds_dict,
        weights,
        classes_model,
+       export_low_conf=EXPORT_LOW_CONF,
        figsize=FIGSIZE,
        dpi=DPI,
        save_fig=SAVE_PRED_FIGS,
