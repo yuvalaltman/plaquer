@@ -215,12 +215,15 @@ DATA_PATH_SAVE = "inference"
 DATA_PATH_LOCAL = {mdl: os.path.join(DATA_PATH_SAVE, mdl) for mdl in MODELS}
 DATA_PATH_IMGS = {mdl: os.path.join(DATA_PATH_LOCAL[mdl], "images") for mdl in MODELS}
 
-MAIN_PATH = r"/content/drive/MyDrive/Kobiler Lab/Labelled Data/"
+# MAIN_PATH = r"/content/drive/MyDrive/Kobiler Lab/Labelled Data/"
+MAIN_PATH = r"/content/drive/MyDrive/plaquer/"
 TRAIN_FOLDER = "train"
 PRED_FOLDER = "predict"
+WEIGHTS_FOLDER = "weights"
 
-MODELS_PATH = {mdl: os.path.join(MAIN_PATH, "models", mdl, "results") for mdl in MODELS}
-WEIGHTS_PATH = {mdl: os.path.join(MODELS_PATH[mdl], TRAIN_FOLDER, "weights", "best.pt") for mdl in MODELS}
+# MODELS_PATH = {mdl: os.path.join(MAIN_PATH, "models", mdl, "results") for mdl in MODELS}
+# WEIGHTS_PATH = {mdl: os.path.join(MODELS_PATH[mdl], TRAIN_FOLDER, "weights", "best.pt") for mdl in MODELS}
+WEIGHTS_PATH = {mdl: os.path.join(MAIN_PATH, WEIGHTS_FOLDER, f"{mdl}_weights.pt") for mdl in MODELS}
 PREDICTIONS_PATH_LOCAL = {mdl: os.path.join(DATA_PATH_LOCAL[mdl], "labels") for mdl in MODELS}
 
 validate_folders([DATA_PATH_SAVE, DATA_PATH_LOCAL, DATA_PATH_IMGS, PREDICTIONS_PATH_LOCAL])
