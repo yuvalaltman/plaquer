@@ -1,3 +1,5 @@
+# plaquer version 1.1.0
+
 # ==============================================================================
 #                                 IMPORTS
 # ==============================================================================
@@ -205,7 +207,7 @@ def add_ext(fname, ext=".png"):
 #                                 CONSTANTS
 # ==============================================================================
  
-MODELS = ["synth_12i", "synth_13a"]
+MODELS = ["synth_12g", "synth_13a"]
 
 n_models = len(MODELS)
 weights = [2, 1]
@@ -239,7 +241,7 @@ majority_classes = ["R", "C+Y"]
 mid_classes = ["R+Y", "C"]
 minority_classes = ["C+R", "Y", "ALL 3"]
 
-classes_model = {"synth_12i": classes, "synth_13a": majority_classes}
+classes_model = {"synth_12g": classes, "synth_13a": majority_classes}
 classes_model = process_classes_model(classes_model, MODELS)
 
 yolo_stride = 32
@@ -257,7 +259,7 @@ RESCALE = True
 UBYTE = True
 PREPROCESS_SUB_IMG = False if (RESCALE and UBYTE) else True
 
-WEIGHTED_IMG = {"synth_12i": False, "synth_13a": True}
+WEIGHTED_IMG = {"synth_12g": False, "synth_13a": True}
 
 augs = ["hflip", "vflip", "rot90", "gamma"]
 TTA = args["TTA"] # test time augmentations, float in [0-1], for the probability of performing augmentations
