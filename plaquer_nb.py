@@ -1,5 +1,3 @@
-# plaquer version 1.1.0
-
 # ==============================================================================
 #                                 IMPORTS
 # ==============================================================================
@@ -31,6 +29,11 @@ from tqdm import tqdm
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+
+# ==============================================================================
+#                                 CODE VERSION
+# ==============================================================================
+plaquer_version = "v1.1.0"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -1306,6 +1309,7 @@ def export(fname_dict,
 # ==============================================================================
 
 print("\n[START]")
+print(f"*** plaquer {plaquer_version} ***")
 
 # 1. HANDLING GPU
 print("\n1/7 HANDLING GPU ...")
