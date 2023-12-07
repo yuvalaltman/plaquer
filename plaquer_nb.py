@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 # ==============================================================================
 #                                 CODE VERSION
 # ==============================================================================
-plaquer_version = "v1.2.0"
+plaquer_version = "v1.2.1"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -928,7 +928,7 @@ def predict_ensemble(sample,
 
   # concatenate predictions from all models in the ensemble
   for mdl in preds_dict.keys():
-    boxes_df = preds_dict[mdl].query(f"img_large == '{sample}' and not synth")
+    boxes_df = preds_dict[mdl].query(f"img_large == '{sample}'")
     boxes_df = boxes_df.query(f"class_id in {classes_model[mdl]}").copy()
     boxes_df["model"] = mdl
     boxes_dfs.append(boxes_df)
