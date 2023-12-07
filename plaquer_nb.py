@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 # ==============================================================================
 #                                 CODE VERSION
 # ==============================================================================
-plaquer_version = "v1.1.0"
+plaquer_version = "v1.2.0"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -274,9 +274,11 @@ LARGE_OBJ_AREA = 260**2 # in pixels² (for analyzing results, not used in proces
 BOX_COLUMNS = ["x", "y", "w", "h"]
 
 IOU_NMS = 0.25
+WBF = False
 IOU_WBF = 0.3
-IOA = 0.5
 SKIP_BOX_THRESHOLD = 0.001
+IOA = 0.5
+CBR_CLASS_AGNOSTIC = True
 
 FIGSIZE = (18, 18)
 DPI = 140
@@ -880,10 +882,14 @@ def _compute_ioa_matrices(preds, targets):
 
 # ------------------------------------------------------------------------------
 
-def get_ind_contained_boxes(preds, ioa_threshold=0.5):
-  ioa_matrix, iou_label_match_matrix = _compute_ioa_matrices(preds, preds)
+def get_ind_contained_boxes(preds, ioa_threshold=0.5, class_agnostic=False):
+  ioa_matrix, ioa_label_match_matrix = _compute_ioa_matrices(preds, preds)
+  if class_agnostic:
+    ioa_mat = ioa_matrix
+  else:
+    ioa_mat = ioa_label_match_matrix
   inds_remove = []
-  for i, b in enumerate(iou_label_match_matrix):
+  for i, b in enumerate(ioa_mat):
       inds = np.flatnonzero(b>ioa_threshold)
       if inds.size>0:
         for ind in inds:
@@ -893,9 +899,9 @@ def get_ind_contained_boxes(preds, ioa_threshold=0.5):
 
 # ------------------------------------------------------------------------------
 
-def remove_contained_boxes(preds, ioa_threshold=0.5):
+def remove_contained_boxes(preds, ioa_threshold=0.5, class_agnostic=False):
   preds = preds.sort_values(by="conf", ascending=False)
-  ind_remove = get_ind_contained_boxes(preds, ioa_threshold=ioa_threshold)
+  ind_remove = get_ind_contained_boxes(preds, ioa_threshold, class_agnostic)
   return preds.drop(index=preds.iloc[ind_remove].index.tolist())
 
 # ------------------------------------------------------------------------------
@@ -910,60 +916,103 @@ def get_imgs_list(preds_dict):
 def predict_ensemble(sample,
                      preds_dict,
                      iou_thr_nms=IOU_NMS,
+										 wbf=WBF,
                      iou_thr_wbf=IOU_WBF,
                      skip_box_thr=SKIP_BOX_THRESHOLD,
                      ioa_thr=IOA,
+										 class_agnostic=CBR_CLASS_AGNOSTIC,
                      weights=None,
                      classes_model=None):
+			     
+  boxes_dfs = []
 
-  boxes_list = []
-  scores_list = []
-  labels_list = []
-
+  # concatenate predictions from all models in the ensemble
   for mdl in preds_dict.keys():
-
-    # filter the predictions of the selected sample (IMGXX)
-    boxes_df = preds_dict[mdl].query(f"img_large == '{sample}'")
-
-    # filter predictions of the desired classes from this model
-    boxes_df = boxes_df.query(f"class_id in {classes_model[mdl]}")
-
-    # NMS: Non-Max Supression (class agnostic) ---> should be out of the for loop
-    boxes_df = img_nms(boxes_df, iou_threshold=iou_thr_nms)
-
-    boxes_list.append(torch.clamp(_boxes_convert(boxes_df), min=0, max=1))
-    scores_list.append(boxes_df["conf"].values)
-    labels_list.append(boxes_df["class_id"].values)
+    boxes_df = preds_dict[mdl].query(f"img_large == '{sample}' and not synth")
+    boxes_df = boxes_df.query(f"class_id in {classes_model[mdl]}").copy()
+    boxes_df["model"] = mdl
+    boxes_dfs.append(boxes_df)
+  boxes_dfs = pd.concat(boxes_dfs, ignore_index=True)
+  
+  # NMS: Non-Max Supression
+  boxes_dfs = img_nms(boxes_dfs, iou_threshold=iou_thr_nms)
 
   # WBF: Weighted Boxes Fusion (class specific)
-  boxes, scores, labels = weighted_boxes_fusion(
-      boxes_list, scores_list, labels_list,
-      weights=weights, iou_thr=iou_thr_wbf, skip_box_thr=skip_box_thr
-  )
+  if wbf:
+    boxes_list = []
+    scores_list = []
+    labels_list = []
+    for mdl in preds_dict.keys():
+      boxes_model = boxes_dfs.query(f"model == '{mdl}'")
+      boxes_list.append(torch.clamp(_boxes_convert(boxes_model), min=0, max=1))
+      scores_list.append(boxes_model["conf"].values)
+      labels_list.append(boxes_model["class_id"].values)
 
-  # arrange remaining prediction boxes in dataframe
-  preds = pd.DataFrame(boxes, columns=BOX_COLUMNS)
-  preds[BOX_COLUMNS] = _boxes_convert(preds, in_fmt="xyxy", out_fmt="cxcywh")
-  preds["class_id"] = labels.astype(int)
-  preds["conf"] = scores
-  preds["d"] = boxes_df.iloc[0]["d"].astype(int)
-  preds["img_large"] = sample
-  preds["pred_id"] = preds.index
+    boxes, scores, labels = weighted_boxes_fusion(boxes_list, scores_list, labels_list,
+        weights=weights, iou_thr=iou_thr_wbf, skip_box_thr=skip_box_thr)
 
-  # NMS: Non-Max Supression (class agnostic) AFTER ENSEMBLING PREDICTIONS
-  preds = img_nms(preds, iou_threshold=iou_thr_nms)
+    preds = pd.DataFrame(boxes, columns=BOX_COLUMNS)
+    preds[BOX_COLUMNS] = _boxes_convert(preds, in_fmt="xyxy", out_fmt="cxcywh")
+    preds["class_id"] = labels.astype(int)
+    preds["conf"] = scores
+    preds["d"] = boxes_dfs.iloc[0]["d"].astype(int)
+    preds["img_large"] = boxes_dfs.iloc[0]["img_large"]
+    preds["pred_id"] = preds.index
+  else:
+    preds = boxes_dfs
 
-  # CBR: Contained Boxes Removal (class specific)
-  preds = remove_contained_boxes(preds, ioa_threshold=ioa_thr)
+  # CBR: Contained Boxes Removal
+  preds = remove_contained_boxes(preds, ioa_thr, class_agnostic)
+			     
+# _________________________________________________________________________________
+#                         V1.1.0			     
+# for mdl in preds_dict.keys():
+
+#   # filter the predictions of the selected sample (IMGXX)
+#   boxes_df = preds_dict[mdl].query(f"img_large == '{sample}'")
+
+#   # filter predictions of the desired classes from this model
+#   boxes_df = boxes_df.query(f"class_id in {classes_model[mdl]}")
+
+#   # NMS: Non-Max Supression (class agnostic) ---> should be out of the for loop
+#   boxes_df = img_nms(boxes_df, iou_threshold=iou_thr_nms)
+
+#   boxes_list.append(torch.clamp(_boxes_convert(boxes_df), min=0, max=1))
+#   scores_list.append(boxes_df["conf"].values)
+#   labels_list.append(boxes_df["class_id"].values)
+
+# # WBF: Weighted Boxes Fusion (class specific)
+# boxes, scores, labels = weighted_boxes_fusion(
+#     boxes_list, scores_list, labels_list,
+#     weights=weights, iou_thr=iou_thr_wbf, skip_box_thr=skip_box_thr
+# )
+
+# # arrange remaining prediction boxes in dataframe
+# preds = pd.DataFrame(boxes, columns=BOX_COLUMNS)
+# preds[BOX_COLUMNS] = _boxes_convert(preds, in_fmt="xyxy", out_fmt="cxcywh")
+# preds["class_id"] = labels.astype(int)
+# preds["conf"] = scores
+# preds["d"] = boxes_df.iloc[0]["d"].astype(int)
+# preds["img_large"] = sample
+# preds["pred_id"] = preds.index
+
+# # NMS: Non-Max Supression (class agnostic) AFTER ENSEMBLING PREDICTIONS
+# preds = img_nms(preds, iou_threshold=iou_thr_nms)
+
+# # CBR: Contained Boxes Removal (class specific)
+# preds = remove_contained_boxes(preds, ioa_threshold=ioa_thr)
+# _________________________________________________________________________________
 
   return preds
 
 # ------------------------------------------------------------------------------
 
 def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
+															 wbf=WBF,
                                iou_wbf=IOU_WBF,
                                skip_box_thr=SKIP_BOX_THRESHOLD,
                                ioa=IOA,
+															 class_agnostic=CBR_CLASS_AGNOSTIC,
                                weights=None,
                                classes_model=None):
 
@@ -975,9 +1024,11 @@ def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
   ensemble_preds_dict = {img: predict_ensemble(img,
                                                preds_dict,
                                                iou_nms,
+																							 wbf,
                                                iou_wbf,
                                                skip_box_thr,
                                                ioa,
+																							 class_agnostic,
                                                weights,
                                                classes_model) for img in imgs_list}
   return ensemble_preds_dict                                              
@@ -1335,9 +1386,11 @@ for mdl in MODELS:
 # 5. STITCHING
 print("\n5/7 STITCHING ...")
 ensemble_preds_dict = get_ensemble_preds_per_img(IOU_NMS,
+																								 WBF,
                                                  IOU_WBF,
                                                  SKIP_BOX_THRESHOLD,
                                                  IOA,
+																								 CBR_CLASS_AGNOSTIC,
                                                  weights,
                                                  classes_model)
 												 
