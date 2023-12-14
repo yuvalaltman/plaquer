@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 # ==============================================================================
 #                                 CODE VERSION
 # ==============================================================================
-plaquer_version = "v1.3.0"
+plaquer_version = "v1.3.1"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -1475,11 +1475,13 @@ for mdl in MODELS:
 # 5. STITCHING
 print("\n5/7 STITCHING ...")
 ensemble_preds_dict = get_ensemble_preds_per_img(IOU_NMS,
-																								 WBF,
+						 WBF,
                                                  IOU_WBF,
                                                  SKIP_BOX_THRESHOLD,
                                                  IOA,
-																								 CBR_CLASS_AGNOSTIC,
+						 CBR_CLASS_AGNOSTIC,
+						 ASPECT_RATIO,
+						 AREA_N_STD,
                                                  weights,
                                                  classes_model)
 												 
