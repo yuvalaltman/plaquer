@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 # ==============================================================================
 #                                 CODE VERSION
 # ==============================================================================
-plaquer_version = "v1.3.2"
+plaquer_version = "v1.3.3"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -1397,23 +1397,23 @@ def export_low_conf_preds(input_data_fnames,
       ids_low_conf = preds_low_conf.index
 
       if len(preds_low_conf)>0:
-        plot_low_conf_preds_indivisuals(large_img_fname,
-	                                preds_low_conf,
-	                                figsize=figsize,
-	                                dpi=dpi,
-	                                save_fig=save_fig,
-	                                close_fig=close_fig)
-	
-	plot_low_conf_preds_in_large_img(large_img_fname,
-	                                ensemble_preds_dict[large_img_fname],
-	                                plot_pred_id=True,
-	                                plot_conf=True,
-	                                classes_plot=classes_plot,
-	                                ids_plot=ids_low_conf,
-	                                figsize=figsize,
-	                                dpi=dpi,
-	                                save_fig=save_fig,
-	                                close_fig=close_fig)
+	      plot_low_conf_preds_indivisuals(large_img_fname,
+		                              preds_low_conf,
+		                              figsize=figsize,
+		                              dpi=dpi,
+		                              save_fig=save_fig,
+		                              close_fig=close_fig)
+	      
+	      plot_low_conf_preds_in_large_img(large_img_fname,
+					       ensemble_preds_dict[large_img_fname],
+					       plot_pred_id=True,
+					       plot_conf=True,
+					       classes_plot=classes_plot,
+					       ids_plot=ids_low_conf,
+					       figsize=figsize,
+					       dpi=dpi,
+					       save_fig=save_fig,
+					       close_fig=close_fig)
 
 def export(fname_dict,
            total_count,
