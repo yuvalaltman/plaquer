@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 # ==============================================================================
 #                                 CODE VERSION
 # ==============================================================================
-plaquer_version = "v1.3.1"
+plaquer_version = "v1.3.2"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -294,7 +294,7 @@ PLOT_PRED_ID = False
 PLOT_CONF = True
 CLOSE_FIG = True
 
-LOW_CONF_THRESHOLD = 0.1
+LOW_CONF_THRESHOLD = 0.3
 LOW_CONF_PERCENTILE = 0.05
 EXPORT_LOW_CONF = args["low_conf"]
 
@@ -1396,23 +1396,24 @@ def export_low_conf_preds(input_data_fnames,
       preds_low_conf = ensemble_preds_dict[large_img_fname].query(f"conf < {conf_t}")
       ids_low_conf = preds_low_conf.index
 
-      plot_low_conf_preds_indivisuals(large_img_fname,
-                                      preds_low_conf,
-                                      figsize=figsize,
-                                      dpi=dpi,
-                                      save_fig=save_fig,
-                                      close_fig=close_fig)
-
-      plot_low_conf_preds_in_large_img(large_img_fname,
-                                       ensemble_preds_dict[large_img_fname],
-                                       plot_pred_id=True,
-                                       plot_conf=True,
-                                       classes_plot=classes_plot,
-                                       ids_plot=ids_low_conf,
-                                       figsize=figsize,
-                                       dpi=dpi,
-                                       save_fig=save_fig,
-                                       close_fig=close_fig)
+      if len(preds_low_conf)>0:
+        plot_low_conf_preds_indivisuals(large_img_fname,
+	                                preds_low_conf,
+	                                figsize=figsize,
+	                                dpi=dpi,
+	                                save_fig=save_fig,
+	                                close_fig=close_fig)
+	
+	plot_low_conf_preds_in_large_img(large_img_fname,
+	                                ensemble_preds_dict[large_img_fname],
+	                                plot_pred_id=True,
+	                                plot_conf=True,
+	                                classes_plot=classes_plot,
+	                                ids_plot=ids_low_conf,
+	                                figsize=figsize,
+	                                dpi=dpi,
+	                                save_fig=save_fig,
+	                                close_fig=close_fig)
 
 def export(fname_dict,
            total_count,
