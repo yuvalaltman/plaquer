@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 # ==============================================================================
 #                                 CODE VERSION
 # ==============================================================================
-plaquer_version = "v1.3.3"
+plaquer_version = "v1.3.4"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -1126,26 +1126,32 @@ def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
 #                                 COUNTING
 # ==============================================================================
 
-def count_plaques(df):
+def count_plaques(df=None):
   plaque_count = pd.Series(np.full(len(classes), 0, dtype=int), index=classes, name="count")
-  class_id = df["class_id"]
-  if isinstance(class_id, pd.DataFrame):
-    class_id = class_id.squeeze()
-  value_counts = class_id.value_counts()
-  for cls_id in value_counts.index.astype(int):
-    plaque_count[class_from_id[cls_id]] = value_counts[cls_id]
+  
+  if df is not None:
+    class_id = df["class_id"]
+    if isinstance(class_id, pd.DataFrame):
+      class_id = class_id.squeeze()
+    value_counts = class_id.value_counts()
+    for cls_id in value_counts.index.astype(int):
+      plaque_count[class_from_id[cls_id]] = value_counts[cls_id]
 
   plaque_count = convert_series_to_col_df(plaque_count)
   return plaque_count
 
 # ------------------------------------------------------------------------------
 
-def calculate_df_counts_ensemble(ensemble_preds_dict):
-  imgs_list = list(ensemble_preds_dict.keys())
+def calculate_df_counts_ensemble(ensemble_preds_dict, fname_dict):
+  # imgs_list = list(ensemble_preds_dict.keys())
+  imgs_list = fname_dict["img_name"].values
   df_count_preds = pd.DataFrame(index=imgs_list, columns=classes, dtype=int)
 
   for img in imgs_list:
-    count_preds = count_plaques(ensemble_preds_dict[img])
+    if img in ensemble_preds_dict.keys():
+      count_preds = count_plaques(ensemble_preds_dict[img])
+    else:
+      count_preds = count_plaques()
     df_count_preds.loc[img] = count_preds.T.loc["count"]
 
   return df_count_preds.astype(int)
@@ -1234,29 +1240,29 @@ def plot_sample_full(preds,
   ax.set_facecolor(COLORS["fig_bg_dark"])
 
   ax.imshow(img)
-
-  if isinstance(classes_plot, list):
-    classes_plot_id = [classes_id[cls] for cls in classes_plot]
-    preds = preds[preds["class_id"].isin(classes_plot_id)]
-  elif classes_plot != "all":
-    class_plot_id = classes_id[classes_plot]
-    preds = preds[preds["class_id"] == class_plot_id]
-
-  alphas = pd.Series([alpha_high]*len(preds), index=preds.index)
-  if isinstance(ids_plot, (list, pd.Index, pd.Series, np.ndarray)):
-    ids_high = ids_plot
-    ids_low = preds.index[~preds.index.isin(ids_high)]
-    alphas[ids_low] = alpha_low
-
-  rects = []
-  for pred_idx, pred_row in preds.iterrows():
-    rects, ax = plot_box(ax, pred_row, sw, rects=rects,
-                         alpha=alphas[pred_idx],
-                         lw=2,va="top", ha="right",
-                         plot_id=plot_pred_id, plot_conf=plot_conf)
-
-  pc = mpl.collections.PatchCollection(rects, match_original=True)
-  ax.add_collection(pc)
+  if preds is not None:
+	  if isinstance(classes_plot, list):
+	    classes_plot_id = [classes_id[cls] for cls in classes_plot]
+	    preds = preds[preds["class_id"].isin(classes_plot_id)]
+	  elif classes_plot != "all":
+	    class_plot_id = classes_id[classes_plot]
+	    preds = preds[preds["class_id"] == class_plot_id]
+	
+	  alphas = pd.Series([alpha_high]*len(preds), index=preds.index)
+	  if isinstance(ids_plot, (list, pd.Index, pd.Series, np.ndarray)):
+	    ids_high = ids_plot
+	    ids_low = preds.index[~preds.index.isin(ids_high)]
+	    alphas[ids_low] = alpha_low
+	
+	  rects = []
+	  for pred_idx, pred_row in preds.iterrows():
+	    rects, ax = plot_box(ax, pred_row, sw, rects=rects,
+				 alpha=alphas[pred_idx],
+				 lw=2,va="top", ha="right",
+				 plot_id=plot_pred_id, plot_conf=plot_conf)
+	
+	  pc = mpl.collections.PatchCollection(rects, match_original=True)
+	  ax.add_collection(pc)
 
   ax.axis("off")
 
@@ -1282,7 +1288,12 @@ def export_prediction_plots(input_data_fnames,
       figname_load = os.path.join(DATA_PATH_SAVE, add_ext(large_img_fname))
       figname_save = os.path.join(INPUT_DATA_PATH, add_ext(large_img_fname))
 
-      plot_sample_full(ensemble_preds_dict[large_img_fname],
+			if large_img_fname in ensemble_preds_dict.keys():
+        preds = ensemble_preds_dict[large_img_fname]
+      else:
+        preds = None
+				
+      plot_sample_full(preds,
                        figname_load,
                        figsize=FIGSIZE,
                        dpi=DPI,
@@ -1391,29 +1402,30 @@ def export_low_conf_preds(input_data_fnames,
     original_file = os.path.basename(fname)
     large_img_fnames = fname_dict.query(f"original_file == '{original_file}'")["img_name"].values
     for large_img_fname in large_img_fnames:
-      conf_t = min(LOW_CONF_THRESHOLD,
-                  ensemble_preds_dict[large_img_fname]["conf"].quantile(LOW_CONF_PERCENTILE))
-      preds_low_conf = ensemble_preds_dict[large_img_fname].query(f"conf < {conf_t}")
-      ids_low_conf = preds_low_conf.index
-
-      if len(preds_low_conf)>0:
-	      plot_low_conf_preds_indivisuals(large_img_fname,
-		                              preds_low_conf,
-		                              figsize=figsize,
-		                              dpi=dpi,
-		                              save_fig=save_fig,
-		                              close_fig=close_fig)
-	      
-	      plot_low_conf_preds_in_large_img(large_img_fname,
-					       ensemble_preds_dict[large_img_fname],
-					       plot_pred_id=True,
-					       plot_conf=True,
-					       classes_plot=classes_plot,
-					       ids_plot=ids_low_conf,
-					       figsize=figsize,
-					       dpi=dpi,
-					       save_fig=save_fig,
-					       close_fig=close_fig)
+			if large_img_fname in ensemble_preds_dict.keys():
+	      conf_t = min(LOW_CONF_THRESHOLD,
+	                  ensemble_preds_dict[large_img_fname]["conf"].quantile(LOW_CONF_PERCENTILE))
+	      preds_low_conf = ensemble_preds_dict[large_img_fname].query(f"conf < {conf_t}")
+	      ids_low_conf = preds_low_conf.index
+	
+	      if len(preds_low_conf)>0:
+		      plot_low_conf_preds_indivisuals(large_img_fname,
+			                              preds_low_conf,
+			                              figsize=figsize,
+			                              dpi=dpi,
+			                              save_fig=save_fig,
+			                              close_fig=close_fig)
+		      
+		      plot_low_conf_preds_in_large_img(large_img_fname,
+						       ensemble_preds_dict[large_img_fname],
+						       plot_pred_id=True,
+						       plot_conf=True,
+						       classes_plot=classes_plot,
+						       ids_plot=ids_low_conf,
+						       figsize=figsize,
+						       dpi=dpi,
+						       save_fig=save_fig,
+						       close_fig=close_fig)
 
 def export(fname_dict,
            total_count,
@@ -1421,7 +1433,7 @@ def export(fname_dict,
            ensemble_preds_dict,
            weights=None,
            classes_model=None,
-	   export_low_conf=EXPORT_LOW_CONF,
+	   			 export_low_conf=EXPORT_LOW_CONF,
            figsize=FIGSIZE,
            dpi=DPI,
            save_fig=SAVE_PRED_FIGS,
@@ -1476,19 +1488,19 @@ for mdl in MODELS:
 # 5. STITCHING
 print("\n5/7 STITCHING ...")
 ensemble_preds_dict = get_ensemble_preds_per_img(IOU_NMS,
-						 WBF,
+																								 WBF,
                                                  IOU_WBF,
                                                  SKIP_BOX_THRESHOLD,
                                                  IOA,
-						 CBR_CLASS_AGNOSTIC,
-						 ASPECT_RATIO,
-						 AREA_N_STD,
+																								 CBR_CLASS_AGNOSTIC,
+																								 ASPECT_RATIO,
+																								 AREA_N_STD,
                                                  weights,
                                                  classes_model)
 												 
 # 6. COUNTING
 print("\n6/7 COUNTING ...")
-total_count = calculate_df_counts_ensemble(ensemble_preds_dict)
+total_count = calculate_df_counts_ensemble(ensemble_preds_dict, fname_dict)
 
 # 7. EXPORTING
 print("\n7/7 EXPORTING ...")
