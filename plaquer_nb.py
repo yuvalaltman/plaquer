@@ -1031,13 +1031,13 @@ def remove_abnormal_boxes(preds, aspect_ratio=ASPECT_RATIO, nstd=AREA_N_STD, tol
 def predict_ensemble(sample,
                      preds_dict,
                      iou_thr_nms=IOU_NMS,
-		     wbf=WBF,
+		     						 wbf=WBF,
                      iou_thr_wbf=IOU_WBF,
                      skip_box_thr=SKIP_BOX_THRESHOLD,
                      ioa_thr=IOA,
-		     class_agnostic=CBR_CLASS_AGNOSTIC,
-		     aspect_ratio=ASPECT_RATIO,
-		     area_n_std=AREA_N_STD,
+								     class_agnostic=CBR_CLASS_AGNOSTIC,
+								     aspect_ratio=ASPECT_RATIO,
+								     area_n_std=AREA_N_STD,
                      weights=None,
                      classes_model=None):
 			     
@@ -1092,13 +1092,13 @@ def predict_ensemble(sample,
 # ------------------------------------------------------------------------------
 
 def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
-			       wbf=WBF,
+			       									 wbf=WBF,
                                iou_wbf=IOU_WBF,
                                skip_box_thr=SKIP_BOX_THRESHOLD,
                                ioa=IOA,
-			       class_agnostic=CBR_CLASS_AGNOSTIC,
-			       aspect_ratio=ASPECT_RATIO,
-			       area_n_std=AREA_N_STD,
+												       class_agnostic=CBR_CLASS_AGNOSTIC,
+												       aspect_ratio=ASPECT_RATIO,
+												       area_n_std=AREA_N_STD,
                                weights=None,
                                classes_model=None):
 
@@ -1110,13 +1110,13 @@ def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
   ensemble_preds_dict = {img: predict_ensemble(img,
                                                preds_dict,
                                                iou_nms,
-					       wbf,
+					       															 wbf,
                                                iou_wbf,
                                                skip_box_thr,
                                                ioa,
-					       class_agnostic,
-					       aspect_ratio,
-					       area_n_std,
+																				       class_agnostic,
+																				       aspect_ratio,
+																				       area_n_std,
                                                weights,
                                                classes_model)
 			 for img in imgs_list}
@@ -1288,7 +1288,7 @@ def export_prediction_plots(input_data_fnames,
       figname_load = os.path.join(DATA_PATH_SAVE, add_ext(large_img_fname))
       figname_save = os.path.join(INPUT_DATA_PATH, add_ext(large_img_fname))
 
-			if large_img_fname in ensemble_preds_dict.keys():
+      if large_img_fname in ensemble_preds_dict.keys():
         preds = ensemble_preds_dict[large_img_fname]
       else:
         preds = None
