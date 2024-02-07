@@ -1031,13 +1031,13 @@ def remove_abnormal_boxes(preds, aspect_ratio=ASPECT_RATIO, nstd=AREA_N_STD, tol
 def predict_ensemble(sample,
                      preds_dict,
                      iou_thr_nms=IOU_NMS,
-		     						 wbf=WBF,
+                     wbf=WBF,
                      iou_thr_wbf=IOU_WBF,
                      skip_box_thr=SKIP_BOX_THRESHOLD,
                      ioa_thr=IOA,
-								     class_agnostic=CBR_CLASS_AGNOSTIC,
-								     aspect_ratio=ASPECT_RATIO,
-								     area_n_std=AREA_N_STD,
+                     class_agnostic=CBR_CLASS_AGNOSTIC,
+                     aspect_ratio=ASPECT_RATIO,
+                     area_n_std=AREA_N_STD,
                      weights=None,
                      classes_model=None):
 			     
@@ -1092,13 +1092,13 @@ def predict_ensemble(sample,
 # ------------------------------------------------------------------------------
 
 def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
-			       									 wbf=WBF,
+                               wbf=WBF,
                                iou_wbf=IOU_WBF,
                                skip_box_thr=SKIP_BOX_THRESHOLD,
                                ioa=IOA,
-												       class_agnostic=CBR_CLASS_AGNOSTIC,
-												       aspect_ratio=ASPECT_RATIO,
-												       area_n_std=AREA_N_STD,
+                               class_agnostic=CBR_CLASS_AGNOSTIC,
+                               aspect_ratio=ASPECT_RATIO,
+                               area_n_std=AREA_N_STD,
                                weights=None,
                                classes_model=None):
 
@@ -1110,13 +1110,13 @@ def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
   ensemble_preds_dict = {img: predict_ensemble(img,
                                                preds_dict,
                                                iou_nms,
-					       															 wbf,
+                                               wbf,
                                                iou_wbf,
                                                skip_box_thr,
                                                ioa,
-																				       class_agnostic,
-																				       aspect_ratio,
-																				       area_n_std,
+                                               class_agnostic,
+                                               aspect_ratio,
+                                               area_n_std,
                                                weights,
                                                classes_model)
 			 for img in imgs_list}
@@ -1184,15 +1184,13 @@ def export_fname_dictionary(fname_dict):
 # ------------------------------------------------------------------------------
 
 def get_rect(tl, w, h, cls, sw, lw=2, alpha=0.3):
-  rect = mpl.patches.Rectangle(
-    tl,
-    w*sw,
-    h*sw,
-    linewidth=lw,
-    edgecolor=COLORS["class"][cls],
-    facecolor="none",
-    alpha=alpha
-    )
+  rect = mpl.patches.Rectangle(tl,
+                               w*sw,
+                               h*sw,
+                               linewidth=lw,
+                               edgecolor=COLORS["class"][cls],
+                               facecolor="none",
+                               alpha=alpha)
   return rect
 
 # ------------------------------------------------------------------------------
@@ -1241,14 +1239,14 @@ def plot_sample_full(preds,
 
   ax.imshow(img)
   if preds is not None:
-	  if isinstance(classes_plot, list):
-	    classes_plot_id = [classes_id[cls] for cls in classes_plot]
-	    preds = preds[preds["class_id"].isin(classes_plot_id)]
-	  elif classes_plot != "all":
-	    class_plot_id = classes_id[classes_plot]
-	    preds = preds[preds["class_id"] == class_plot_id]
-	
-	  alphas = pd.Series([alpha_high]*len(preds), index=preds.index)
+      if isinstance(classes_plot, list):
+          classes_plot_id = [classes_id[cls] for cls in classes_plot]
+          preds = preds[preds["class_id"].isin(classes_plot_id)]
+      elif classes_plot != "all":
+          class_plot_id = classes_id[classes_plot]
+          preds = preds[preds["class_id"] == class_plot_id]
+          
+      alphas = pd.Series([alpha_high]*len(preds), index=preds.index)
 	  if isinstance(ids_plot, (list, pd.Index, pd.Series, np.ndarray)):
 	    ids_high = ids_plot
 	    ids_low = preds.index[~preds.index.isin(ids_high)]
@@ -1410,22 +1408,22 @@ def export_low_conf_preds(input_data_fnames,
 	
 	      if len(preds_low_conf)>0:
 		      plot_low_conf_preds_indivisuals(large_img_fname,
-			                              preds_low_conf,
-			                              figsize=figsize,
-			                              dpi=dpi,
-			                              save_fig=save_fig,
-			                              close_fig=close_fig)
+                                              preds_low_conf,
+                                              figsize=figsize,
+                                              dpi=dpi,
+                                              save_fig=save_fig,
+                                              close_fig=close_fig)
 		      
 		      plot_low_conf_preds_in_large_img(large_img_fname,
-						       ensemble_preds_dict[large_img_fname],
-						       plot_pred_id=True,
-						       plot_conf=True,
-						       classes_plot=classes_plot,
-						       ids_plot=ids_low_conf,
-						       figsize=figsize,
-						       dpi=dpi,
-						       save_fig=save_fig,
-						       close_fig=close_fig)
+                                               ensemble_preds_dict[large_img_fname],
+                                               plot_pred_id=True,
+                                               plot_conf=True,
+                                               classes_plot=classes_plot,
+                                               ids_plot=ids_low_conf,
+                                               figsize=figsize,
+                                               dpi=dpi,
+                                               save_fig=save_fig,
+                                               close_fig=close_fig)
 
 def export(fname_dict,
            total_count,
@@ -1433,7 +1431,7 @@ def export(fname_dict,
            ensemble_preds_dict,
            weights=None,
            classes_model=None,
-	   			 export_low_conf=EXPORT_LOW_CONF,
+           export_low_conf=EXPORT_LOW_CONF,
            figsize=FIGSIZE,
            dpi=DPI,
            save_fig=SAVE_PRED_FIGS,
@@ -1442,20 +1440,20 @@ def export(fname_dict,
    export_fname_dictionary(fname_dict)
    export_counting_result(total_count)
    export_prediction_plots(input_data_fnames,
-			   fname_dict,
-			   ensemble_preds_dict,
-			   weights,
-			   classes_model,
-			   close_fig)
+                           fname_dict,
+                           ensemble_preds_dict,
+                           weights,
+                           classes_model,
+                           close_fig)
    if export_low_conf:
-	   export_low_conf_preds(input_data_fnames,
-				 fname_dict,
-				 ensemble_preds_dict,
-				 classes_plot="all",
-				 figsize=figsize,
-				 dpi=dpi,
-				 save_fig=save_fig,
-				 close_fig=close_fig)
+       export_low_conf_preds(input_data_fnames,
+                             fname_dict,
+                             ensemble_preds_dict,
+                             classes_plot="all",
+                             figsize=figsize,
+                             dpi=dpi,
+                             save_fig=save_fig,
+                             close_fig=close_fig)
 	                                       
 # ==============================================================================
 #                                 RUN SCRIPT
@@ -1488,13 +1486,13 @@ for mdl in MODELS:
 # 5. STITCHING
 print("\n5/7 STITCHING ...")
 ensemble_preds_dict = get_ensemble_preds_per_img(IOU_NMS,
-																								 WBF,
+                                                 WBF,
                                                  IOU_WBF,
                                                  SKIP_BOX_THRESHOLD,
                                                  IOA,
-																								 CBR_CLASS_AGNOSTIC,
-																								 ASPECT_RATIO,
-																								 AREA_N_STD,
+                                                 CBR_CLASS_AGNOSTIC,
+                                                 ASPECT_RATIO,
+                                                 AREA_N_STD,
                                                  weights,
                                                  classes_model)
 												 
