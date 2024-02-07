@@ -1247,10 +1247,10 @@ def plot_sample_full(preds,
           preds = preds[preds["class_id"] == class_plot_id]
           
       alphas = pd.Series([alpha_high]*len(preds), index=preds.index)
-      if isinstance(ids_plot, (list, pd.Index, pd.Series, np.ndarray)):
-          ids_high = ids_plot
-          ids_low = preds.index[~preds.index.isin(ids_high)]
-          alphas[ids_low] = alpha_low
+	  if isinstance(ids_plot, (list, pd.Index, pd.Series, np.ndarray)):
+	    ids_high = ids_plot
+	    ids_low = preds.index[~preds.index.isin(ids_high)]
+	    alphas[ids_low] = alpha_low
 	
 	  rects = []
 	  for pred_idx, pred_row in preds.iterrows():
