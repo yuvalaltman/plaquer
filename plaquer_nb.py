@@ -878,9 +878,9 @@ def get_ind_contained_boxes(preds, ioa_threshold=0.5, class_agnostic=False):
 # ------------------------------------------------------------------------------
 
 def remove_contained_boxes(preds, ioa_threshold=0.5, class_agnostic=False):
-preds = preds.sort_values(by="conf", ascending=False)
-ind_remove = get_ind_contained_boxes(preds, ioa_threshold, class_agnostic)
-return preds.drop(index=preds.iloc[ind_remove].index.tolist())
+  preds = preds.sort_values(by="conf", ascending=False)
+  ind_remove = get_ind_contained_boxes(preds, ioa_threshold, class_agnostic)
+  return preds.drop(index=preds.iloc[ind_remove].index.tolist())
 
 # ------------------------------------------------------------------------------
 
