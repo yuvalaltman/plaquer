@@ -114,8 +114,8 @@ def preprocess_img(img, ind_rgb=[1,0,2], resize=True, img_size=384, p=(2, 98), r
         img = np.transpose(img, (1, 2, 0)) # CHW -> HWC
     if resize:
         img = cv2.resize(img, (img_size, img_size))
-        img = img_as_float(img)
-        img = img[:, :, ind_rgb] # GRB -> RGB
+    img = img_as_float(img)
+    img = img[:, :, ind_rgb] # GRB -> RGB
     if rescale:
         pvals = np.percentile(img, p)
         img = exposure.rescale_intensity(img, in_range=tuple(pvals))
