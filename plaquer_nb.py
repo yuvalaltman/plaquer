@@ -157,22 +157,22 @@ def process_classes_model(classes_model, model_list):
 # ------------------------------------------------------------------------------
 
 def get_rect_corners_from_box(x, y, w, h):
-"""
-given a rectangle's center (x, y), its width (w) and height (h), this
-function returns its corner  points coordinates:
-([x_bottom, x_top], [y_bottom, y_top])
-"""
-    return ([x-w/2, x+w/2], [y-h/2, y+h/2])
+  """
+  given a rectangle's center (x, y), its width (w) and height (h), this
+  function returns its corner  points coordinates:
+  ([x_bottom, x_top], [y_bottom, y_top])
+  """
+  return ([x-w/2, x+w/2], [y-h/2, y+h/2])
 
 # ------------------------------------------------------------------------------
 
 def get_box_coords(x, y, w, h):
-"""
-given a bounding box with center (x,y), width (w) and height (h), this function
-returns the (x,y) coordinates of the bounding box corners as a 2d list
-"""
-    pts_x, pts_y = get_rect_corners_from_box(x, y, w, h)
-    return [[px, py] for px in pts_x for py in pts_y]
+  """
+  given a bounding box with center (x,y), width (w) and height (h), this function
+  returns the (x,y) coordinates of the bounding box corners as a 2d list
+  """
+  pts_x, pts_y = get_rect_corners_from_box(x, y, w, h)
+  return [[px, py] for px in pts_x for py in pts_y]
 
 # ------------------------------------------------------------------------------
 
