@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 # ==============================================================================
 #                                 CODE VERSION
 # ==============================================================================
-plaquer_version = "v1.3.4"
+plaquer_version = "v1.3.5"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -276,7 +276,7 @@ SKIP_BOX_THRESHOLD = 0.001
 IOA = 0.4
 CBR_CLASS_AGNOSTIC = True
 ASPECT_RATIO = 3.0
-AREA_N_STD = 2.0
+AREA_ALPHA_MED = 0.1
 ABR_TOL = 0.01
 
 FIGSIZE = (18, 18)
@@ -961,44 +961,46 @@ def remove_abnormal_boxes_aspect_ratio(preds, aspect_ratio=ASPECT_RATIO, tol=ABR
 
 # ------------------------------------------------------------------------------
 
-def calculate_img_area_thr(preds, nstd=AREA_N_STD):
-    return (preds.groupby("img_large")["area"].mean() -\
-            nstd*preds.groupby("img_large")["area"].std()).clip(lower=0)
+def calculate_img_area_thr(preds, area_alpha_med=AREA_ALPHA_MED):
+  return area_alpha_med * preds.groupby("img_large")["area"].median()
 
 # ------------------------------------------------------------------------------
 
 def is_box_abnormal_small(box, img_area_thr):
-    return box["area"] < img_area_thr[box["img_large"]]
+  return box["area"] < img_area_thr[box["img_large"]]
 
 # ------------------------------------------------------------------------------
 
-def remove_abnormal_boxes_area(preds, nstd=AREA_N_STD, tol=ABR_TOL):
-    # add area for all predicted boxes
-    if "area" not in preds.columns:
-        preds["area"] = preds.apply(box_area, axis=1)
-    
-    # calculate the threshold for minimal area per img
-    img_area_thr = calculate_img_area_thr(preds, nstd)
-    
-    # create a df copy with all abnormal area boxes
-    idx_abnormal_area = np.where(preds.apply(is_box_abnormal_small,
-    axis=1, args=[img_area_thr]))[0]
-    preds_abnormal_area = preds.iloc[idx_abnormal_area].copy()
-    
-    # remove from this df boxes which are on the image edges
-    preds_abnormal_area = discard_boxes_on_edge(preds_abnormal_area, tol)
-    
-    # remove the remaining boxes (abnormal aspect ratio, not on edges) from the
-    # input predictions df
-    preds = preds.drop(index=preds_abnormal_area.index)
-    return preds
+def remove_abnormal_boxes_area(preds, area_alpha_med=AREA_ALPHA_MED, tol=ABR_TOL):
+  # add area for all predicted boxes
+  if "area" not in preds.columns:
+    preds["area"] = preds.apply(box_area, axis=1)
+
+  # calculate the threshold for minimal area per img
+  img_area_thr = calculate_img_area_thr(preds, area_alpha_med)
+
+  # create a df copy with all abnormal area boxes
+  idx_abnormal_area = np.where(preds.apply(is_box_abnormal_small,
+                                           axis=1, args=[img_area_thr]))[0]
+  preds_abnormal_area = preds.iloc[idx_abnormal_area].copy()
+
+  # remove from this df boxes which are on the image edges
+  preds_abnormal_area = discard_boxes_on_edge(preds_abnormal_area, tol)
+
+  # remove the remaining boxes (abnormal aspect ratio, not on edges) from the
+  # input predictions df
+  preds = preds.drop(index=preds_abnormal_area.index)
+  return preds
 
 # ------------------------------------------------------------------------------
 
-def remove_abnormal_boxes(preds, aspect_ratio=ASPECT_RATIO, nstd=AREA_N_STD, tol=ABR_TOL):
-    preds = remove_abnormal_boxes_aspect_ratio(preds, aspect_ratio=aspect_ratio, tol=tol)
-    preds = remove_abnormal_boxes_area(preds, nstd=nstd, tol=tol)
-    return preds
+def remove_abnormal_boxes(preds,
+                          aspect_ratio=ASPECT_RATIO,
+                          area_alpha_med=AREA_ALPHA_MED,
+                          tol=ABR_TOL):
+  preds = remove_abnormal_boxes_aspect_ratio(preds, aspect_ratio=aspect_ratio, tol=tol)
+  preds = remove_abnormal_boxes_area(preds, area_alpha_med=area_alpha_med, tol=tol)
+  return preds
 
 # ------------------------------------------------------------------------------
 
@@ -1011,57 +1013,57 @@ def predict_ensemble(sample,
                      ioa_thr=IOA,
                      class_agnostic=CBR_CLASS_AGNOSTIC,
                      aspect_ratio=ASPECT_RATIO,
-                     area_n_std=AREA_N_STD,
+                     area_alpha_med=AREA_ALPHA_MED,
                      weights=None,
                      classes_model=None):
 
-    boxes_dfs = []
-    
-    # concatenate predictions from all models in the ensemble
+  boxes_dfs = []
+
+  # concatenate predictions from all models in the ensemble
+  for mdl in preds_dict.keys():
+    boxes_df = preds_dict[mdl].query(f"img_large == '{sample}'")
+    boxes_df = boxes_df.query(f"class_id in {classes_model[mdl]}").copy()
+    boxes_df["model"] = mdl
+    boxes_dfs.append(boxes_df)
+  boxes_dfs = pd.concat(boxes_dfs, ignore_index=True)
+
+  # NMS: Non-Max Supression
+  boxes_dfs = img_nms(boxes_dfs, iou_threshold=iou_thr_nms)
+
+  # WBF: Weighted Boxes Fusion (class specific)
+  if wbf:
+    boxes_list = []
+    scores_list = []
+    labels_list = []
     for mdl in preds_dict.keys():
-        boxes_df = preds_dict[mdl].query(f"img_large == '{sample}'")
-        boxes_df = boxes_df.query(f"class_id in {classes_model[mdl]}").copy()
-        boxes_df["model"] = mdl
-        boxes_dfs.append(boxes_df)
-    boxes_dfs = pd.concat(boxes_dfs, ignore_index=True)
-    
-    # NMS: Non-Max Supression
-    boxes_dfs = img_nms(boxes_dfs, iou_threshold=iou_thr_nms)
-    
-    # WBF: Weighted Boxes Fusion (class specific)
-    if wbf:
-        boxes_list = []
-        scores_list = []
-        labels_list = []
-        for mdl in preds_dict.keys():
-            boxes_model = boxes_dfs.query(f"model == '{mdl}'")
-            boxes_list.append(torch.clamp(_boxes_convert(boxes_model), min=0, max=1))
-            scores_list.append(boxes_model["conf"].values)
-            labels_list.append(boxes_model["class_id"].values)
-        
-        boxes, scores, labels = weighted_boxes_fusion(boxes_list, scores_list, labels_list,
+      boxes_model = boxes_dfs.query(f"model == '{mdl}'")
+      boxes_list.append(torch.clamp(_boxes_convert(boxes_model), min=0, max=1))
+      scores_list.append(boxes_model["conf"].values)
+      labels_list.append(boxes_model["class_id"].values)
+
+    boxes, scores, labels = weighted_boxes_fusion(boxes_list, scores_list, labels_list,
         weights=weights, iou_thr=iou_thr_wbf, skip_box_thr=skip_box_thr)
-        
-        preds = pd.DataFrame(boxes, columns=BOX_COLUMNS)
-        preds[BOX_COLUMNS] = _boxes_convert(preds, in_fmt="xyxy", out_fmt="cxcywh")
-        preds["class_id"] = labels.astype(int)
-        preds["conf"] = scores
-        preds["d"] = boxes_dfs.iloc[0]["d"].astype(int)
-        preds["img_large"] = boxes_dfs.iloc[0]["img_large"]
-        preds["pred_id"] = preds.index
-    else:
-        preds = boxes_dfs
-    
-    # CBR: Contained Boxes Removal
-    preds = remove_contained_boxes(preds, ioa_thr, class_agnostic)
-    
-    # ABR: Abnormal Boxes Removal
-    preds = remove_abnormal_boxes(preds,
-                                  aspect_ratio=aspect_ratio,
-                                  nstd=area_n_std,
-                                  tol=ABR_TOL)
-    
-    return preds
+
+    preds = pd.DataFrame(boxes, columns=BOX_COLUMNS)
+    preds[BOX_COLUMNS] = _boxes_convert(preds, in_fmt="xyxy", out_fmt="cxcywh")
+    preds["class_id"] = labels.astype(int)
+    preds["conf"] = scores
+    preds["d"] = boxes_dfs.iloc[0]["d"].astype(int)
+    preds["img_large"] = boxes_dfs.iloc[0]["img_large"]
+    preds["pred_id"] = preds.index
+  else:
+    preds = boxes_dfs
+
+  # CBR: Contained Boxes Removal
+  preds = remove_contained_boxes(preds, ioa_thr, class_agnostic)
+
+  # ABR: Abnormal Boxes Removal
+  preds = remove_abnormal_boxes(preds,
+                                aspect_ratio=aspect_ratio,
+                                area_alpha_med=area_alpha_med,
+                                tol=ABR_TOL)
+
+  return preds
 
 # ------------------------------------------------------------------------------
 
@@ -1072,29 +1074,29 @@ def get_ensemble_preds_per_img(iou_nms=IOU_NMS,
                                ioa=IOA,
                                class_agnostic=CBR_CLASS_AGNOSTIC,
                                aspect_ratio=ASPECT_RATIO,
-                               area_n_std=AREA_N_STD,
+                               area_alpha_med=AREA_ALPHA_MED,
                                weights=None,
                                classes_model=None):
 
-    # dictionary with keys=modles, values=predictions (of all images)
-    preds_dict = {mdl: get_model_preds(mdl) for mdl in MODELS}
-    # list of image code names (IMG01, IMG02, ...)
-    imgs_list = get_imgs_list(preds_dict)
-    # dictionary with keys=images, values=ensemble predictions
-    ensemble_preds_dict = {img: predict_ensemble(img,
-                                                 preds_dict,
-                                                 iou_nms,
-                                                 wbf,
-                                                 iou_wbf,
-                                                 skip_box_thr,
-                                                 ioa,
-                                                 class_agnostic,
-                                                 aspect_ratio,
-                                                 area_n_std,
-                                                 weights,
-                                                 classes_model)
-                           for img in imgs_list}
-    return ensemble_preds_dict
+  # dictionary with keys=modles, values=predictions (of all images)
+  preds_dict = {mdl: get_model_preds(mdl) for mdl in MODELS}
+  # list of image code names (IMG01, IMG02, ...)
+  imgs_list = get_imgs_list(preds_dict)
+  # dictionary with keys=images, values=ensemble predictions
+  ensemble_preds_dict = {img: predict_ensemble(img,
+                                               preds_dict,
+                                               iou_thr_nms=iou_nms,
+                                               wbf=wbf,
+                                               iou_thr_wbf=iou_wbf,
+                                               skip_box_thr=skip_box_thr,
+                                               ioa_thr=ioa,
+                                               class_agnostic=class_agnostic,
+                                               aspect_ratio=aspect_ratio,
+                                               area_alpha_med=area_alpha_med,
+                                               weights=weights,
+                                               classes_model=classes_model)
+			 for img in imgs_list}
+  return ensemble_preds_dict
 
 # ==============================================================================
 #                                 COUNTING
@@ -1467,7 +1469,7 @@ ensemble_preds_dict = get_ensemble_preds_per_img(IOU_NMS,WBF,
                                                  IOA,
                                                  CBR_CLASS_AGNOSTIC,
                                                  ASPECT_RATIO,
-                                                 AREA_N_STD,
+                                                 AREA_ALPHA_MED,
                                                  weights,
                                                  classes_model)
 
