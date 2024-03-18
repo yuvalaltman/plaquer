@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 # ==============================================================================
 #                                 CODE VERSION
 # ==============================================================================
-plaquer_version = "v1.3.5"
+plaquer_version = "v1.4.0"
 
 # ==============================================================================
 #                            PARSING INPUT ARGUMENTS
@@ -42,7 +42,7 @@ plaquer_version = "v1.3.5"
 parser = ArgumentParser(description="Counting plaques from ND2 files of fluorescent microscopy images",
                         formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument("-t", "--TTA", default=1.0, type=float, help="Amount of Test Time Augmentations (0-1)")
-parser.add_argument("-l", "--low-conf", action="store_false", help="Exporting plots of low confidence detections")
+parser.add_argument("-l", "--low-conf", action="store_true", help="Exporting plots of low confidence detections")
 parser.add_argument("data", help="Path of the folder containing ND2 images to count")
 args = vars(parser.parse_args())
 
@@ -106,19 +106,21 @@ def read_img(filename, color_fluo={}):
 
 # ------------------------------------------------------------------------------
 
-def preprocess_img(img, ind_rgb=[1,0,2], resize=True, img_size=384, p=(2, 98), rescale=True, ubyte=False):
+def preprocess_img(img, ind_rgb=[1,0,2], resize=True, img_size=384, p=(2, 99.99), rescale=True, ubyte=False):
     ind_channel = np.array(img.shape).argmin()
     if img.shape[ind_channel]>3:
         img = img[:3]
     if ind_channel==0:
         img = np.transpose(img, (1, 2, 0)) # CHW -> HWC
+        
     if resize:
         img = cv2.resize(img, (img_size, img_size))
     img = img_as_float(img)
     img = img[:, :, ind_rgb] # GRB -> RGB
     if rescale:
-        pvals = np.percentile(img, p)
-        img = exposure.rescale_intensity(img, in_range=tuple(pvals))
+        for c in range(3):
+            pvals = np.percentile(img[:,:,c], p)
+            img[:,:,c] = exposure.rescale_intensity(img[:,:,c], in_range=tuple(pvals))
     if ubyte:
         img = img_as_ubyte(img)
     return img
@@ -206,7 +208,7 @@ def add_ext(fname, ext=".png"):
 #                                 CONSTANTS
 # ==============================================================================
 
-MODELS = ["synth_12g", "synth_13a"]
+MODELS = ["synth_14a", "synth_15a"]
 
 n_models = len(MODELS)
 weights = [2, 1]
@@ -240,7 +242,7 @@ majority_classes = ["R", "C+Y"]
 mid_classes = ["R+Y", "C"]
 minority_classes = ["C+R", "Y", "ALL 3"]
 
-classes_model = {"synth_12g": classes, "synth_13a": majority_classes}
+classes_model = {"synth_14a": classes, "synth_15a": majority_classes}
 classes_model = process_classes_model(classes_model, MODELS)
 
 yolo_stride = 32
@@ -258,9 +260,9 @@ RESCALE = True
 UBYTE = True
 PREPROCESS_SUB_IMG = False if (RESCALE and UBYTE) else True
 
-WEIGHTED_IMG = {"synth_12g": False, "synth_13a": True}
+WEIGHTED_IMG = {"synth_14a": False, "synth_15a": True}
 
-augs = ["hflip", "vflip", "rot90", "gamma"]
+augs = ["hflip", "vflip", "rot90"]
 TTA = args["TTA"] # test time augmentations, float in [0-1], for the probability of performing augmentations
 
 MIN_AREA_REMOVE = 24**2 # predicted objects with an area smaller than this will be removed (given in pixels²)
